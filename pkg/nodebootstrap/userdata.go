@@ -185,11 +185,18 @@ func makeKubeletExtraConf(kubeletExtraConf *api.InlineDocument) (cloudconfig.Fil
 
 func makeBootstrapEnv(clusterConfig *api.ClusterConfig, np api.NodePool, clusterDNS string) cloudconfig.File {
 	ng := np.BaseNodeGroup()
+	// Get instance metadata
+	metadataLabels, err := utils.GetEC2InstanceMetadata()
+	if err != nil {
+		// Log the error but continue without metadata labels
+		metadataLabels = make(map[string]string)
+	}
+
 	variables := map[string]string{
 		"CLUSTER_NAME":   clusterConfig.Metadata.Name,
 		"API_SERVER_URL": clusterConfig.Status.Endpoint,
 		"B64_CLUSTER_CA": base64.StdEncoding.EncodeToString(clusterConfig.Status.CertificateAuthorityData),
-		"NODE_LABELS":    formatLabels(ng.Labels),
+		"NODE_LABELS":    formatLabels(ng.Labels, metadataLabels),
 		"NODE_TAINTS":    utils.FormatTaints(np.NGTaints()),
 	}
 	if id := clusterConfig.Status.ID; id != "" {
@@ -226,8 +233,18 @@ func makeKeyValues(kv map[string]string, separator string) string {
 	return strings.Join(params, separator)
 }
 
-func formatLabels(labels map[string]string) string {
-	return makeKeyValues(labels, ",")
+func formatLabels(labelMaps ...map[string]string) string {
+	// Create a merged map of all label maps
+	mergedLabels := make(map[string]string)
+	
+	// Copy all label maps into the merged map
+	for _, labels := range labelMaps {
+		for k, v := range labels {
+			mergedLabels[k] = v
+		}
+	}
+	
+	return makeKeyValues(mergedLabels, ",")
 }
 
 type script struct {

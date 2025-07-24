@@ -117,8 +117,13 @@ func (m *AL2023) createMinimalNodeConfig() (*nodeadm.NodeConfig, error) {
 		return nil, err
 	}
 
+	metadataLabels, err := utils.GetEC2InstanceMetadata()
+	if err != nil {
+		return nil, err
+	}
+
 	kubeletOptions := nodeadm.KubeletOptions{
-		Flags:  []string{"--node-labels=" + formatLabels(ng.Labels)},
+		Flags:  []string{"--node-labels=" + formatLabels(ng.Labels, metadataLabels)},
 		Config: nodeKubeletConfig,
 	}
 	if taints := m.nodePool.NGTaints(); len(taints) > 0 {
